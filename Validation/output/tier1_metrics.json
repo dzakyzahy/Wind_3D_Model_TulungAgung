@@ -1,0 +1,8 @@
+{
+  "tier1": {
+    "mae_m": 2.73,
+    "rmse_m": 3.45,
+    "target_rmse_m": 5.0,
+    "status": "PASS"
+  }
+}

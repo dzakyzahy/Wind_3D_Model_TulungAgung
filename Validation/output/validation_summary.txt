@@ -1,0 +1,22 @@
+==================================================
+ IEC 61400-1 WRA VALIDATION SUMMARY REPORT
+ Proyek: Wind 3D Model Tulungagung & Trenggalek
+==================================================
+Tier 1 (Topografi & Batimetri - Geodetic Ground Truth):
+  - MAE Elevasi  : 2.73 meter
+  - RMSE Elevasi : 3.45 meter (Target < 5.0 m)
+
+Tier 2 (Meteorologi & Koreksi Bias - MCP Method):
+  [Validasi Terpisah per Stasiun Observasi]
+  1. Stasiun Geofisika Malang : R² = 87.5% | RMSE = 0.385 m/s
+  2. Stasiun BMKG Nganjuk     : R² = 82.4% | RMSE = 0.440 m/s
+  3. Stasiun AWS Tulungagung  : R² = 88.2% | RMSE = 0.360 m/s
+  4. Stasiun AWS Pacitan      : R² = 86.1% | RMSE = 0.410 m/s
+
+  [Validasi Keseluruhan (Regional Composite Ensemble)]
+  - Korelasi (R²) Keseluruhan : 89.4% (0.8940) -> Standar: PASS
+  - RMSE Angin Keseluruhan    : 0.342 m/s      -> Standar: PASS
+  - Stasiun Referensi Terbaik : AWS Tulungagung (On-Site) & Regional Ensemble
+--------------------------------------------------
+ STATUS: BANKABLE (PASS)
+==================================================

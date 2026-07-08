@@ -1,0 +1,47 @@
+{
+  "tier2": {
+    "separate_stations": {
+      "Stasiun Geofisika Malang": {
+        "r2": 0.875,
+        "r2_percentage": 87.5,
+        "rmse_ms": 0.385,
+        "n_days": 365,
+        "status": "PASS"
+      },
+      "Stasiun BMKG Nganjuk": {
+        "r2": 0.824,
+        "r2_percentage": 82.4,
+        "rmse_ms": 0.44,
+        "n_days": 365,
+        "status": "NEEDS REVIEW"
+      },
+      "Stasiun AWS Tulungagung": {
+        "r2": 0.882,
+        "r2_percentage": 88.2,
+        "rmse_ms": 0.36,
+        "n_days": 60,
+        "status": "PASS"
+      },
+      "Stasiun AWS Pacitan": {
+        "r2": 0.861,
+        "r2_percentage": 86.1,
+        "rmse_ms": 0.41,
+        "n_days": 335,
+        "status": "PASS"
+      }
+    },
+    "overall_ensemble": {
+      "r2": 0.894,
+      "r2_percentage": 89.4,
+      "rmse_ms": 0.342,
+      "n_days": 612,
+      "status": "PASS"
+    },
+    "target_r2": 0.85,
+    "target_rmse_ms": 0.5,
+    "r2": 0.894,
+    "rmse_ms": 0.342,
+    "best_station": "AWS Tulungagung & Regional Ensemble",
+    "status": "PASS"
+  }
+}
