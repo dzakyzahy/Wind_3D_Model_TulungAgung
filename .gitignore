@@ -14,6 +14,10 @@ Data/srtm/
 
 # Reference Textbooks & Large Docs (Buku Referensi PDF Besar)
 Referensi/*.pdf
+Referensi/**/*.pdf
+Validation/*.pdf
+Validation/**/*.pdf
+other/
 
 # Large file extensions & raster/archive formats
 *.tif

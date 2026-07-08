@@ -70,8 +70,8 @@ window.WindDataLoader = (function() {
       },
       terrain, wind_layers: layers,
       stats: {
-        wspd_mean_100m: 6.8, wpd_mean_100m: 185, cf_mean_100m: 0.28,
-        weibull_k: 2.15, weibull_lambda: 7.5, v50_ms: 27.5, iec_class: 'III', is_demo: true
+        wspd_mean_100m: 4.26, wpd_mean_100m: 90.4, cf_mean_100m: 0.087,
+        weibull_k: 2.014, weibull_lambda: 4.817, v50_ms: 14.1, iec_class: 'Class S (site-specific)', is_demo: true
       }
     };
   }

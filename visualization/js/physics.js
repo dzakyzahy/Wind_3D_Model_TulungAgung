@@ -43,7 +43,10 @@ window.WindPhysics = (function() {
     }
   }
 
-  function getPowerFromCurve(ws_ms) {
+  function getPowerFromCurve(ws_ms, turbineId) {
+    if (window.WindTurbinesDB && window.WindTurbinesDB.getPowerFromCurve) {
+      return window.WindTurbinesDB.getPowerFromCurve(ws_ms, turbineId);
+    }
     const curve = window.WindConfig.POWER_CURVE;
     for (let i = 1; i < curve.length; i++) {
       if (ws_ms <= curve[i][0]) {
@@ -54,7 +57,10 @@ window.WindPhysics = (function() {
     return 0;
   }
 
-  function calcCF(k, lambda) {
+  function calcCF(k, lambda, turbineId, wakeLossPct) {
+    if (window.WindTurbinesDB && window.WindTurbinesDB.calcCF) {
+      return window.WindTurbinesDB.calcCF(k, lambda, turbineId, wakeLossPct);
+    }
     if (!k || !lambda) return 0.28;
     let sum = 0, dU = 0.1;
     for (let u = 0; u < 30; u += dU) {

@@ -85,6 +85,11 @@
     </div>
 
     <div class="ctrl-group">
+      <div class="ctrl-label">Panjang Streamline <span id="lbl-trail-len">15</span></div>
+      <input type="range" id="sl-trail-len" min="5" max="60" step="5" value="15">
+    </div>
+
+    <div class="ctrl-group">
       <div class="ctrl-label">Interval Ghost Trail <span id="lbl-ghost">5s</span></div>
       <input type="range" id="sl-ghost" min="1" max="15" step="1" value="5">
     </div>
@@ -108,6 +113,11 @@
       <label for="cb-particles">Partikel Angin & Jejak</label>
     </div>
     <div class="layer-item">
+      <input type="checkbox" id="cb-ghost">
+      <div class="layer-dot" style="background:#a855f7"></div>
+      <label for="cb-ghost">Ghost Trails Overlay</label>
+    </div>
+    <div class="layer-item">
       <input type="checkbox" id="cb-wpd">
       <div class="layer-dot" style="background:#ef4444"></div>
       <label for="cb-wpd">WPD Heatmap</label>
@@ -121,10 +131,16 @@
         <option value="google">Google Satelit (Eksisting)</option>
       </select>
     </div>
-    <div class="layer-item">
+    <div class="layer-item" style="flex-wrap:wrap; gap:4px;">
       <input type="checkbox" id="cb-turbine">
       <div class="layer-dot" style="background:#f59e0b"></div>
       <label for="cb-turbine">Turbin Kandidat</label>
+      <select id="sel-turbine-type" style="width:100%; max-width:100%; margin-top:4px; background:#1e293b; color:#fff; border:1px solid #38bdf8; border-radius:4px; padding:3px 6px; font-size:11.5px; cursor:pointer; box-sizing:border-box; text-overflow:ellipsis; overflow:hidden;">
+        <option value="Vestas_V150_4.5MW_Placeholder" selected>Estimated Data A (Vestas V150-4.5MW)</option>
+        <option value="Siemens_Gamesa_G132_3.465MW">Siemens Gamesa G132-3.465MW - OEM Data</option>
+        <option value="Goldwind_GW155_4.0MW">Goldwind GW155-4.5MW (Derated 4.0MW) - OEM Data</option>
+        <option value="GE_Cypress_5.3_158_Placeholder">Estimated Data B (GE Cypress 5.3-158)</option>
+      </select>
     </div>
     <div class="layer-item">
       <input type="checkbox" id="cb-wake">
@@ -178,14 +194,16 @@
 
     <div class="sep"></div>
     <div id="stats-display">
+      <div class="stat-row"><span>Turbin aktif</span><b id="disp-turb-name" style="color:#38bdf8;">Vestas V150 (4.5 MW)</b></div>
       <div class="stat-row"><span>WPD rata-rata</span><b id="disp-wpd">-- W/m²</b></div>
-      <div class="stat-row"><span>CF estimasi</span><b id="disp-cf">--%</b></div>
+      <div class="stat-row"><span>CF bersih (Net)</span><b id="disp-cf">--%</b></div>
       <div class="stat-row"><span>Weibull k</span><b id="disp-k">--</b></div>
       <div class="stat-row"><span>V50-year</span><b id="disp-v50">-- m/s</b></div>
       <div class="stat-row"><span>IEC Class</span><b id="disp-iec">--</b></div>
       <div class="stat-row"><span>TI estimasi</span><b id="disp-ti">--%</b></div>
       <div class="stat-row"><span>Wake loss farm</span><b id="disp-wake-loss">--%</b></div>
-      <div class="stat-row"><span>AEP estimasi</span><b id="disp-aep">-- GWh/yr</b></div>
+      <div class="stat-row"><span>Net AEP Farm</span><b id="disp-aep">-- GWh/yr</b></div>
+      <div class="stat-row"><span>LCOE estimasi</span><b id="disp-lcoe">-- USD/MWh</b></div>
       <div class="stat-row"><span>z0 roughness</span><b id="disp-z0">-- m</b></div>
       <div class="stat-row"><span>Partikel aktif</span><b id="disp-nparticle">--</b></div>
     </div>
@@ -227,6 +245,7 @@
   <script src="rbi_bundle.js"></script>
 
   <!-- Modular Scripts -->
+  <script src="js/turbines_db.js"></script>
   <script src="js/config.js"></script>
   <script src="js/physics.js"></script>
   <script src="js/data_loader.js"></script>
@@ -256,9 +275,11 @@
       elevScale: 0.45,
       animSpeed: 1.0,
       nParticles: 500,
+      trailLen: 15,
       ghostDepositInterval: 5.0,
       ghostMaxAge: 15.0,
       showParticles: true,
+      showGhostTrails: false,
       showWPD: false,
       showTurbine: false,
       showWake: false,

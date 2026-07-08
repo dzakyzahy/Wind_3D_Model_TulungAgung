@@ -327,6 +327,12 @@ window.WindSceneHelpers = (function() {
     const TS = window.WindConfig.TS;
     const WU_PER_KM = window.WindConfig.WU_PER_KM;
 
+    const spec = (window.WindTurbinesDB && window.WindTurbinesDB.getTurbine) ? window.WindTurbinesDB.getTurbine(state.selectedTurbineId) : { default_hub_m: 100, rotor_diameter_m: 150 };
+    const hubHeightM = spec.default_hub_m || (spec.hub_heights_m ? spec.hub_heights_m[0] : 100);
+    const rotorRadiusM = (spec.rotor_diameter_m || 150) / 2;
+    const towerH = hubHeightM * 0.00009;
+    const rotorR = rotorRadiusM * 0.00009;
+
     positions.slice(0, 25).forEach(([mx, my]) => {
       const wx = (mx / 1000) * WU_PER_KM;
       const wz = (my / 1000) * WU_PER_KM;
@@ -336,26 +342,26 @@ window.WindSceneHelpers = (function() {
       const ty = Math.max(0, h) * state.elevScale * 6;
 
       const tower = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.001, 0.0015, 0.009, 8),
+        new THREE.CylinderGeometry(towerH * 0.11, towerH * 0.16, towerH, 8),
         new THREE.MeshPhongMaterial({ color: 0xdce8f0, shininess: 40 })
       );
-      tower.position.set(wx, ty + 0.0045, wz);
+      tower.position.set(wx, ty + towerH * 0.5, wz);
       state.turbineGroup.add(tower);
 
       const nacelle = new THREE.Mesh(
-        new THREE.BoxGeometry(0.002, 0.0008, 0.001),
+        new THREE.BoxGeometry(towerH * 0.22, towerH * 0.09, towerH * 0.11),
         new THREE.MeshPhongMaterial({ color: 0xf0f4f8 })
       );
-      nacelle.position.set(wx, ty + 0.0095, wz);
+      nacelle.position.set(wx, ty + towerH + towerH * 0.04, wz);
       state.turbineGroup.add(nacelle);
 
       const rotor = new THREE.Group();
-      rotor.position.set(wx, ty + 0.0095, wz);
+      rotor.position.set(wx, ty + towerH + towerH * 0.04, wz);
       rotor.rotation.y = Math.PI / 2;
       rotor.userData.isRotor = true;
 
       const disc = new THREE.Mesh(
-        new THREE.CircleGeometry(0.0068, 16),
+        new THREE.CircleGeometry(rotorR, 16),
         new THREE.MeshBasicMaterial({ color: 0xe0eaf5, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
       );
       rotor.add(disc);
@@ -364,10 +370,10 @@ window.WindSceneHelpers = (function() {
         const bladeGroup = new THREE.Group();
         bladeGroup.rotation.z = (b * 120) * Math.PI / 180;
         const blade = new THREE.Mesh(
-          new THREE.BoxGeometry(0.0008, 0.006, 0.0002),
+          new THREE.BoxGeometry(rotorR * 0.12, rotorR * 0.88, rotorR * 0.03),
           new THREE.MeshPhongMaterial({ color: 0xffffff })
         );
-        blade.position.y = 0.003;
+        blade.position.y = rotorR * 0.44;
         bladeGroup.add(blade);
         rotor.add(bladeGroup);
       }
@@ -456,7 +462,7 @@ window.WindSceneHelpers = (function() {
     if (!state.windData || !state.windData.meta) return;
     const { nx, nz } = state.windData.meta;
     const TS = window.WindConfig.TS;
-    const TRAIL_LEN = window.WindConfig.TRAIL_LEN;
+    const TRAIL_LEN = state.trailLen || window.WindConfig.TRAIL_LEN || 15;
     const col = Math.random() * nx;
     const row = Math.random() * nz;
     const wx = (col / nx - 0.5) * TS;
@@ -469,6 +475,23 @@ window.WindSceneHelpers = (function() {
       state.pHistZ[i * TRAIL_LEN + k] = wz;
     }
     state.pAges[i] = 0; state.pLife[i] = 2 + Math.random() * 4;
+
+    if (state.particleSystem && state.particleSystem.geometry && state.particleSystem.geometry.attributes.position) {
+      const posArr = state.particleSystem.geometry.attributes.position.array;
+      const colArr = state.particleSystem.geometry.attributes.color.array;
+      const nSegs = TRAIL_LEN - 1;
+      for (let s = 0; s < nSegs; s++) {
+        const vIdx = (i * nSegs + s) * 2;
+        if ((vIdx + 1) * 3 + 2 < posArr.length) {
+          posArr[vIdx * 3] = wx; posArr[vIdx * 3 + 1] = ty; posArr[vIdx * 3 + 2] = wz;
+          posArr[(vIdx + 1) * 3] = wx; posArr[(vIdx + 1) * 3 + 1] = ty; posArr[(vIdx + 1) * 3 + 2] = wz;
+          colArr[vIdx * 3] = 0; colArr[vIdx * 3 + 1] = 0; colArr[vIdx * 3 + 2] = 0;
+          colArr[(vIdx + 1) * 3] = 0; colArr[(vIdx + 1) * 3 + 1] = 0; colArr[(vIdx + 1) * 3 + 2] = 0;
+        }
+      }
+      state.particleSystem.geometry.attributes.position.needsUpdate = true;
+      state.particleSystem.geometry.attributes.color.needsUpdate = true;
+    }
   }
 
   function initParticles(n, scene, THREE, state) {
@@ -477,7 +500,7 @@ window.WindSceneHelpers = (function() {
     const lyr = state.windData.wind_layers[state.currentLayer];
     const wsArr = Array.isArray(lyr.wspd[0]) ? lyr.wspd.flat() : lyr.wspd;
     const wsMax = Math.max(...wsArr.filter(v => isFinite(v))) || 8;
-    const TRAIL_LEN = window.WindConfig.TRAIL_LEN;
+    const TRAIL_LEN = state.trailLen || window.WindConfig.TRAIL_LEN || 15;
 
     state.pHistX = new Float32Array(n * TRAIL_LEN);
     state.pHistY = new Float32Array(n * TRAIL_LEN);
@@ -524,7 +547,7 @@ window.WindSceneHelpers = (function() {
     const n = state.pAges.length;
     const posArr = state.particleSystem.geometry.attributes.position.array;
     const colArr = state.particleSystem.geometry.attributes.color.array;
-    const TRAIL_LEN = window.WindConfig.TRAIL_LEN;
+    const TRAIL_LEN = state.trailLen || window.WindConfig.TRAIL_LEN || 15;
     const nSegs = TRAIL_LEN - 1;
     const TS = window.WindConfig.TS;
 
@@ -538,10 +561,12 @@ window.WindSceneHelpers = (function() {
       const { u, v, ws } = getWind(col_g, row_g, state);
 
       const speed_scale = 0.18;
-      const nx2 = (wx + u * state.animSpeed * dt * speed_scale);
-      const nz2 = (wz - v * state.animSpeed * dt * speed_scale);
+      const stepX = u * state.animSpeed * dt * speed_scale;
+      const stepZ = -v * state.animSpeed * dt * speed_scale;
+      const nx2 = wx + stepX;
+      const nz2 = wz + stepZ;
 
-      if (nx2 < -TS / 2 || nx2 > TS / 2 || nz2 < -TS / 2 || nz2 > TS / 2) {
+      if (nx2 < -TS / 2 || nx2 > TS / 2 || nz2 < -TS / 2 || nz2 > TS / 2 || Math.abs(stepX) > TS * 0.2 || Math.abs(stepZ) > TS * 0.2) {
         resetParticle(i, wsMax, state); continue;
       }
       const nc = (nx2 / TS + 0.5) * nx;
@@ -562,7 +587,7 @@ window.WindSceneHelpers = (function() {
 
       const c = window.WindPhysics.wsColor(ws, wsMax, THREE);
       const t = state.pAges[i] / state.pLife[i];
-      const lifeAlpha = t < 0.1 ? t / 0.1 : t > 0.85 ? (1 - t) / 0.15 : 1.0;
+      const lifeAlpha = t < 0.08 ? (t / 0.08) : t > 0.85 ? ((1 - t) / 0.15) : 1.0;
 
       for (let s = 0; s < nSegs; s++) {
         const vIdx = (i * nSegs + s) * 2;
@@ -592,7 +617,7 @@ window.WindSceneHelpers = (function() {
 
   function initGhostMesh(scene, THREE, state) {
     if (state.ghostMesh) { scene.remove(state.ghostMesh); state.ghostMesh.geometry.dispose(); }
-    const TRAIL_LEN = window.WindConfig.TRAIL_LEN;
+    const TRAIL_LEN = state.trailLen || window.WindConfig.TRAIL_LEN || 15;
     const MAX_GHOST = window.WindConfig.MAX_GHOST_TRAILS;
     const maxVerts = MAX_GHOST * TRAIL_LEN * 2;
     const geo = new THREE.BufferGeometry();
@@ -604,15 +629,15 @@ window.WindSceneHelpers = (function() {
     });
     state.ghostMesh = new THREE.LineSegments(geo, mat);
     scene.add(state.ghostMesh);
-    state.ghostMesh.visible = state.showParticles;
+    state.ghostMesh.visible = state.showParticles && state.showGhostTrails;
   }
 
   function depositGhostTrails(state, THREE) {
-    if (!state.windData || !state.windData.meta || !state.showParticles) return;
+    if (!state.windData || !state.windData.meta || !state.showParticles || !state.showGhostTrails) return;
     const lyr = state.windData.wind_layers[state.currentLayer];
     const wsArr = Array.isArray(lyr.wspd[0]) ? lyr.wspd.flat() : lyr.wspd;
     const wsMax = Math.max(...wsArr.filter(v => isFinite(v))) || 8;
-    const TRAIL_LEN = window.WindConfig.TRAIL_LEN;
+    const TRAIL_LEN = state.trailLen || window.WindConfig.TRAIL_LEN || 15;
     const TS = window.WindConfig.TS;
 
     const n = state.pAges.length;
@@ -648,7 +673,12 @@ window.WindSceneHelpers = (function() {
   }
 
   function updateGhostMesh(dt, state) {
-    if (!state.ghostMesh || state.ghostTrails.length === 0 || !state.showParticles) return;
+    if (!state.ghostMesh || !state.showParticles || !state.showGhostTrails) {
+      if (state.ghostMesh) state.ghostMesh.visible = false;
+      return;
+    }
+    state.ghostMesh.visible = true;
+    if (state.ghostTrails.length === 0) return;
 
     state.ghostTrails = state.ghostTrails.filter(g => {
       g.age += dt;
@@ -660,7 +690,7 @@ window.WindSceneHelpers = (function() {
     posArr.fill(0); colArr.fill(0);
 
     let vi = 0;
-    const TRAIL_LEN = window.WindConfig.TRAIL_LEN;
+    const TRAIL_LEN = state.trailLen || window.WindConfig.TRAIL_LEN || 15;
     const nSegs = TRAIL_LEN - 1;
 
     for (const g of state.ghostTrails) {

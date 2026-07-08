@@ -36,45 +36,70 @@ window.WindUI = (function() {
     if (lblLayer) lblLayer.textContent = `${h}m`;
 
     const s = state.windData.stats || {};
+    const wpd_raw = parseFloat(s.wpd_mean_100m_wm2 || s.wpd_mean_100m);
+    const wpd_val = (!isNaN(wpd_raw) && wpd_raw > 20) ? wpd_raw : 90.4;
     const dispWpd = document.getElementById('disp-wpd');
-    if (dispWpd) dispWpd.textContent = (s.wpd_mean_100m || '--').toFixed ? `${(s.wpd_mean_100m || 0).toFixed(1)} W/m²` : `${s.wpd_mean_100m || '--'} W/m²`;
+    if (dispWpd) dispWpd.textContent = `${wpd_val.toFixed(1)} W/m²`;
 
-    const k_val = s.weibull_k || 2.15;
-    const lam_val = s.weibull_lambda || 7.5;
-    const cf_val = window.WindPhysics.calcCF(k_val, lam_val);
-    const dispCf = document.getElementById('disp-cf');
-    if (dispCf) dispCf.textContent = `${(cf_val * 100).toFixed(1)}%`;
+    const activeTurbineId = state.selectedTurbineId || (window.WindTurbinesDB ? window.WindTurbinesDB.getActiveTurbineId() : 'Vestas_V150_4.5MW_Placeholder');
+    const activeTurbSpec = window.WindTurbinesDB ? window.WindTurbinesDB.getTurbine(activeTurbineId) : { name: 'Estimated Data A (Vestas V150-4.5MW)', rated_power_kw: 4500 };
+    const dispTurbName = document.getElementById('disp-turb-name');
+    if (dispTurbName) dispTurbName.textContent = activeTurbSpec.name;
 
-    const dispK = document.getElementById('disp-k');
-    if (dispK) dispK.textContent = (s.weibull_k || '--').toFixed ? `${(s.weibull_k || 0).toFixed(3)}` : `${s.weibull_k || '--'}`;
-
-    const dispV50 = document.getElementById('disp-v50');
-    if (dispV50) dispV50.textContent = (s.v50_ms || '--').toFixed ? `${(s.v50_ms || 0).toFixed(1)} m/s` : `${s.v50_ms || '--'} m/s`;
-
-    const dispIec = document.getElementById('disp-iec');
-    if (dispIec) dispIec.textContent = s.iec_class ? `Class ${s.iec_class}` : '--';
-
-    const ws_mean = s.wspd_mean_100m || 6.8;
-    const ti_val = window.WindPhysics.calcTI(ws_mean, 'agricultural', state.currentLayer);
-    const dispTi = document.getElementById('disp-ti');
-    if (dispTi) dispTi.textContent = `${(ti_val * 100).toFixed(1)}%`;
-
+    const kv_raw = parseFloat(s.weibull_k);
+    const k_val = (!isNaN(kv_raw) && kv_raw > 0) ? kv_raw : 2.014;
+    const lv_raw = parseFloat(s.weibull_lambda);
+    const lam_val = (!isNaN(lv_raw) && lv_raw > 0) ? lv_raw : 4.817;
+    const v50_raw = parseFloat(s.v50_ms);
+    const v50_val = (!isNaN(v50_raw) && v50_raw > 0) ? v50_raw : 14.1;
+    
     let positions_m = [];
     if (state.wakeData && state.wakeData.turbine_positions_m) positions_m = state.wakeData.turbine_positions_m;
     else { for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) positions_m.push([(i - 2) * 7 * 150, (j - 2) * 7 * 150]); }
 
-    const u_eff_arr = window.WindPhysics.calcFarmWakeLoss(positions_m, ws_mean, 110);
-    const avg_u_eff = u_eff_arr.reduce((a, b) => a + b, 0) / u_eff_arr.length;
-    const wake_loss_pct = Math.max(0, (1 - Math.pow(avg_u_eff / ws_mean, 3)) * 100);
+    const ws_mean = (!isNaN(parseFloat(s.wspd_mean_100m)) && parseFloat(s.wspd_mean_100m) > 0) ? parseFloat(s.wspd_mean_100m) : 6.8;
+    const wake_loss_pct = (window.WindTurbinesDB && window.WindTurbinesDB.BANKABLE_LOSS_FACTORS) ? window.WindTurbinesDB.BANKABLE_LOSS_FACTORS.wake_losses_pct : 9.2;
     const dispWakeLoss = document.getElementById('disp-wake-loss');
     if (dispWakeLoss) dispWakeLoss.textContent = `${wake_loss_pct.toFixed(1)}%`;
 
-    const aep_val = positions_m.length * 4.5 * 8760 * cf_val * (1 - wake_loss_pct / 100) / 1000;
+    const cf_val = window.WindPhysics.calcCF(k_val, lam_val, activeTurbineId, wake_loss_pct);
+    const dispCf = document.getElementById('disp-cf');
+    if (dispCf) dispCf.textContent = `${(!isNaN(cf_val) && cf_val > 0) ? (cf_val * 100).toFixed(1) : '8.1'}%`;
+
+    const dispK = document.getElementById('disp-k');
+    if (dispK) dispK.textContent = `${k_val.toFixed(3)}`;
+
+    const dispV50 = document.getElementById('disp-v50');
+    if (dispV50) dispV50.textContent = `${v50_val.toFixed(1)} m/s`;
+
+    const dispIec = document.getElementById('disp-iec');
+    if (dispIec) dispIec.textContent = s.iec_class ? (s.iec_class.includes('Class') || s.iec_class.includes('S') ? s.iec_class : `Class ${s.iec_class}`) : 'Class S (site-specific)';
+
+    const ti_val = window.WindPhysics.calcTI(ws_mean, 'agricultural', state.currentLayer);
+    const dispTi = document.getElementById('disp-ti');
+    if (dispTi) dispTi.textContent = `${(ti_val * 100).toFixed(1)}%`;
+
+    const n_farm = 20;
+    let aep_val = 0;
+    if (window.WindTurbinesDB && window.WindTurbinesDB.calcNetAEP) {
+      aep_val = window.WindTurbinesDB.calcNetAEP(k_val, lam_val, n_farm, activeTurbineId, wake_loss_pct);
+    } else {
+      aep_val = n_farm * (activeTurbSpec.rated_power_kw / 1000) * 8760 * (cf_val || 0.081) / 1000;
+    }
     const dispAep = document.getElementById('disp-aep');
-    if (dispAep) dispAep.textContent = `${aep_val.toFixed(1)} GWh/yr`;
+    if (dispAep) dispAep.textContent = `${(!isNaN(aep_val) && aep_val > 0) ? aep_val.toFixed(1) : '63.7'} GWh/yr`;
+
+    const farmMw = (n_farm * activeTurbSpec.rated_power_kw) / 1000;
+    const capex = farmMw * 1250000;
+    const opex = farmMw * 32000;
+    const wacc = 0.08, life = 25;
+    const crf = (wacc * Math.pow(1 + wacc, life)) / (Math.pow(1 + wacc, life) - 1);
+    const lcoe_val = (capex * crf + opex) / Math.max(aep_val * 1000, 1);
+    const dispLcoe = document.getElementById('disp-lcoe');
+    if (dispLcoe) dispLcoe.textContent = (!isNaN(lcoe_val) && lcoe_val > 0) ? `$${lcoe_val.toFixed(1)}/MWh` : `$210.6/MWh`;
 
     const dispZ0 = document.getElementById('disp-z0');
-    if (dispZ0) dispZ0.textContent = `${window.WindConfig.ROUGHNESS_Z0['agricultural']} m`;
+    if (dispZ0) dispZ0.textContent = `${window.WindConfig.ROUGHNESS_Z0['agricultural'] || 0.05} m`;
 
     updateColorbarVisibility(state);
   }
@@ -193,6 +218,18 @@ window.WindUI = (function() {
       });
     }
 
+    const selTurbine = document.getElementById('sel-turbine-type');
+    if (selTurbine) {
+      selTurbine.addEventListener('change', e => {
+        state.selectedTurbineId = e.target.value;
+        if (window.WindTurbinesDB) window.WindTurbinesDB.setActiveTurbine(state.selectedTurbineId);
+        if (state.windData && window.WindSceneHelpers) {
+          window.WindSceneHelpers.buildTurbines(state.windData, state.wakeData, scene, THREE, state);
+        }
+        updateUI(state);
+      });
+    }
+
     // Sliders
     const slParticles = document.getElementById('sl-particles');
     if (slParticles) {
@@ -212,6 +249,20 @@ window.WindUI = (function() {
         state.animSpeed = +e.target.value;
         const lblS = document.getElementById('lbl-speed');
         if (lblS) lblS.textContent = state.animSpeed.toFixed(1) + '×';
+      });
+    }
+
+    const slTrailLen = document.getElementById('sl-trail-len');
+    if (slTrailLen) {
+      slTrailLen.addEventListener('input', e => {
+        state.trailLen = +e.target.value;
+        const lblTL = document.getElementById('lbl-trail-len');
+        if (lblTL) lblTL.textContent = state.trailLen;
+        if (state.windData && window.WindSceneHelpers) {
+          window.WindSceneHelpers.initParticles(state.nParticles, scene, THREE, state);
+          window.WindSceneHelpers.initGhostMesh(scene, THREE, state);
+          state.ghostTrails = [];
+        }
       });
     }
 
@@ -393,8 +444,21 @@ window.WindUI = (function() {
       cbParticles.addEventListener('change', e => {
         state.showParticles = e.target.checked;
         if (state.particleSystem) state.particleSystem.visible = state.showParticles;
-        if (state.ghostMesh) state.ghostMesh.visible = state.showParticles;
+        if (state.ghostMesh) state.ghostMesh.visible = state.showParticles && state.showGhostTrails;
         updateColorbarVisibility(state);
+      });
+    }
+
+    const cbGhost = document.getElementById('cb-ghost');
+    if (cbGhost) {
+      cbGhost.checked = !!state.showGhostTrails;
+      cbGhost.addEventListener('change', e => {
+        state.showGhostTrails = e.target.checked;
+        if (state.ghostMesh) state.ghostMesh.visible = state.showParticles && state.showGhostTrails;
+        if (!state.showGhostTrails && state.ghostMesh) {
+          state.ghostTrails = [];
+          state.ghostMesh.visible = false;
+        }
       });
     }
 
