@@ -1,0 +1,22 @@
+{
+  "nx": 100,
+  "nz": 100,
+  "speedup_mean": NaN,
+  "speedup_std": NaN,
+  "hub_heights_m": [
+    50,
+    100,
+    150
+  ],
+  "wspd_mean_by_height": {
+    "50": NaN,
+    "100": NaN,
+    "150": NaN
+  },
+  "wpd_mean_by_height": {
+    "50": NaN,
+    "100": NaN,
+    "150": NaN
+  },
+  "is_demo": false
+}

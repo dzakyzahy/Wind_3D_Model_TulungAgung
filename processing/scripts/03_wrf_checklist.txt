@@ -1,0 +1,165 @@
+============================================================
+  WRF CHECKLIST — Tulungagung Wind Study
+  Periode target: Juli–Agustus 2022
+  Domain: D01 27km | D02 9km | D03 3km
+============================================================
+
+PRASYARAT
+---------
+□ WSL2 sudah terinstall dan berjalan
+  Cek: wsl --status
+□ RAM minimal 8 GB bebas (idealnya 16 GB)
+□ Disk bebas minimal 50 GB untuk WRF + data
+□ GCC, gfortran, netcdf-c, netcdf-fortran terinstall di WSL
+  Install: sudo apt install gcc gfortran libnetcdf-dev libnetcdff-dev
+
+
+LANGKAH 1 — INSTALL WRF (di WSL)
+----------------------------------
+# Clone atau download WRF-ARW 4.5
+cd ~
+wget https://github.com/wrf-model/WRF/releases/download/v4.5.2/WRF-4.5.2.tar.gz
+tar xzf WRF-4.5.2.tar.gz
+cd WRF-4.5.2
+
+# Configure (pilih opsi 34 = gfortran + serial, atau 35 = openmp)
+./configure
+# Pilih: 34 (dmpar jika ada MPI, 34 untuk serial)
+# Nesting: 1 (basic)
+
+./compile em_real >& log.compile &
+# Cek: ls -la main/wrf.exe main/real.exe
+# Estimasi waktu: 20–60 menit
+
+
+LANGKAH 2 — INSTALL WPS
+------------------------
+cd ~
+wget https://github.com/wrf-model/WPS/releases/download/v4.5/WPS-4.5.tar.gz
+tar xzf WPS-4.5.tar.gz
+cd WPS-4.5
+
+./configure
+# Pilih opsi yang sesuai gfortran
+
+./compile >& log.wps
+# Cek: ls -la geogrid.exe ungrib.exe metgrid.exe
+
+
+LANGKAH 3 — DOWNLOAD WPS_GEOG DATA
+------------------------------------
+# Data geografi untuk geogrid (terrain, landuse, soil, dll)
+wget https://www2.mmm.ucar.edu/wrf/src/wps_files/geog_high_res_mandatory.tar.gz
+tar xzf geog_high_res_mandatory.tar.gz
+# Update path di namelist.wps: geog_data_path = '/home/user/WPS_GEOG'
+
+
+LANGKAH 4 — LINK NAMELIST.WPS
+-------------------------------
+# Copy dari Windows ke WSL (path WSL untuk D:/)
+cp /mnt/d/ITB2/Pak_RK/MetOcean_Tulungagung/kode_zahy/WindModel3DProject/wrf/namelist.wps \
+   ~/WPS-4.5/namelist.wps
+
+# Edit path geog_data_path sesuai lokasi WSL:
+nano ~/WPS-4.5/namelist.wps
+
+
+LANGKAH 5 — RUN GEOGRID
+------------------------
+cd ~/WPS-4.5
+./geogrid.exe
+# Cek log: cat geogrid.log | tail -20
+# Output: geo_em.d01.nc, geo_em.d02.nc, geo_em.d03.nc
+
+
+LANGKAH 6 — LINK ERA5 DATA
+----------------------------
+# Setelah download ERA5 single+pressure levels, link ke WPS:
+# ERA5 butuh dikonversi ke format GRIB2 dulu, ATAU pakai Vtable ERA-Interim
+
+# Vtable untuk ERA5:
+cp ~/WPS-4.5/ungrib/Variable_Tables/Vtable.ERA-interim.pl Vtable
+# atau download Vtable.ERA5 dari:
+# https://forum.mmm.ucar.edu/threads/vtable-for-era5.12/
+
+# Link file GRIB:
+./link_grib.csh /path/to/era5_pressure_*.grib2
+./link_grib.csh /path/to/era5_single_*.grib2
+
+# Run ungrib
+./ungrib.exe
+# Output: FILE:2022-07-01_00, FILE:2022-07-01_06, dst...
+
+
+LANGKAH 7 — RUN METGRID
+------------------------
+./metgrid.exe
+# Output: met_em.d01.YYYY-MM-DD_HH:mm:ss.nc dst...
+
+
+LANGKAH 8 — COPY NAMELIST.INPUT DAN RUN REAL
+----------------------------------------------
+cd ~/WRF-4.5.2/run
+cp /mnt/d/.../wrf/namelist.input .
+
+# Link met_em files:
+ln -sf ~/WPS-4.5/met_em.d0*.nc .
+
+# Run real.exe
+./real.exe
+# Monitor: cat rsl.error.0000
+
+# Cek output: ls -la wrfinput_d01 wrfbdy_d01
+
+
+LANGKAH 9 — RUN WRF
+---------------------
+mpirun -np 4 ./wrf.exe  # jika MPI tersedia
+# atau
+./wrf.exe                # serial
+
+# Monitor progress:
+tail -f rsl.error.0000
+
+# Estimasi waktu (laptop, serial):
+# D01+D02+D03, 2 bulan = 12–48 jam (tergantung spesifikasi)
+
+# Cek output:
+ls -lh wrfout_d03_*
+
+
+LANGKAH 10 — POST-PROCESSING (Windows)
+----------------------------------------
+# Copy wrfout ke Windows:
+# /mnt/d/.../WindModel3DProject/wrf/output/
+
+# Jalankan script Python:
+python processing/scripts/05_extract_wrf_wind.py
+python processing/scripts/06_wrf_to_json.py   # (update visualization)
+
+
+TROUBLESHOOTING UMUM
+---------------------
+ERROR: "module not found libnetcdf"
+→ sudo apt install libnetcdf-dev libnetcdff-dev
+→ Set env: export NETCDF=/usr
+
+ERROR: "real.exe segfault"
+→ Kurangi domain size di namelist.input (e_we, e_sn)
+→ Cek: ulimit -s unlimited
+
+ERROR: "Time step exceeded CFL"
+→ Kurangi time_step di namelist.input (coba 120 detik untuk D01)
+
+ERROR WPS: "ungrib not finding variables"
+→ Pastikan Vtable.ERA5 (bukan ERA-interim)
+→ Cek format file ERA5: harus GRIB2
+
+MONITORING COMMANDS
+--------------------
+tail -f rsl.error.0000        # progress WRF
+grep "Timing for main" rsl.out.0000 | tail  # lihat seberapa cepat
+nproc                          # cek jumlah core tersedia
+free -h                        # cek RAM
+df -h                          # cek disk
+============================================================

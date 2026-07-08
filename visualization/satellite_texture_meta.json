@@ -1,0 +1,16 @@
+{
+  "bbox": {
+    "lat_min": -9.29,
+    "lat_max": -7.29,
+    "lon_min": 110.8,
+    "lon_max": 112.8
+  },
+  "zoom": 10,
+  "tiles_downloaded": 42,
+  "output_size": [
+    2048,
+    2048
+  ],
+  "projection": "WGS84 Equirectangular (EPSG:4326) reprojected from Web Mercator (EPSG:3857)",
+  "note": "UV in Three.js: u=(x/TS)+0.5, v=1-((z/TS)+0.5), no flip needed"
+}

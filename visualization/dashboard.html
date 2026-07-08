@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wind Resource Dashboard — Tulungagung PLN | ERA5 + DEMNAS</title>
+<meta name="description" content="Dashboard interaktif kajian sumber daya angin Tulungagung. WPD map, wind rose, Weibull, wake loss, return period — ERA5 1980–2025 + DEMNAS 8m.">
+<script src="https://cdn.plot.ly/plotly-2.34.0.min.js"></script>
+<script src="data_bundle.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#0a0e1a;font-family:'Segoe UI',system-ui,sans-serif;color:#e0e8ff;min-height:100vh}
+
+  /* ── Header ──────────────────────────────────────────────────── */
+  #topbar{
+    background:rgba(13,17,23,.97);border-bottom:1px solid rgba(100,130,200,.15);
+    padding:12px 24px;display:flex;align-items:center;justify-content:space-between;
+    position:sticky;top:0;z-index:100;backdrop-filter:blur(16px)
+  }
+  #topbar h1{font-size:14px;font-weight:700;color:#7dd3fc;letter-spacing:.5px}
+  #topbar .sub{font-size:10px;color:#64748b;margin-top:2px}
+  #badge-row{display:flex;gap:8px;align-items:center}
+  .badge{
+    font-size:9px;color:#22d3ee;background:rgba(34,211,238,.08);
+    border:1px solid rgba(34,211,238,.25);border-radius:4px;padding:3px 8px
+  }
+  #btn-3d{
+    font-size:10px;color:#7dd3fc;background:rgba(14,165,233,.1);
+    border:1px solid rgba(14,165,233,.25);border-radius:6px;
+    padding:5px 12px;text-decoration:none;transition:all .2s
+  }
+  #btn-3d:hover{background:rgba(14,165,233,.2)}
+
+  /* ── KPI bar ─────────────────────────────────────────────────── */
+  #kpi-bar{
+    display:flex;gap:0;border-bottom:1px solid rgba(100,130,200,.12);
+    background:rgba(13,17,23,.85);padding:0 16px;overflow-x:auto
+  }
+  .kpi{
+    flex:1;min-width:120px;padding:12px 16px;border-right:1px solid rgba(100,130,200,.1);
+    text-align:center
+  }
+  .kpi:last-child{border-right:none}
+  .kpi-val{font-size:22px;font-weight:700;color:#22d3ee;line-height:1.1}
+  .kpi-unit{font-size:10px;color:#64748b;margin-left:2px}
+  .kpi-lbl{font-size:10px;color:#94a3b8;margin-top:3px}
+  .kpi-val.gold{color:#f59e0b}
+  .kpi-val.green{color:#10b981}
+  .kpi-val.red{color:#ef4444}
+
+  /* ── Grid ────────────────────────────────────────────────────── */
+  #dashboard{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    grid-template-rows:auto auto auto;
+    gap:12px;padding:14px;
+    max-width:1600px;margin:0 auto
+  }
+  .panel{
+    background:rgba(13,17,23,.9);border:1px solid rgba(100,130,200,.15);
+    border-radius:12px;overflow:hidden;
+    box-shadow:0 4px 24px rgba(0,0,0,.4)
+  }
+  .panel-header{
+    padding:10px 16px;border-bottom:1px solid rgba(100,130,200,.12);
+    display:flex;align-items:center;justify-content:space-between
+  }
+  .panel-title{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px}
+  .panel-controls{display:flex;gap:8px}
+  .panel-controls select{
+    background:rgba(30,41,59,.9);border:1px solid rgba(100,130,200,.2);
+    color:#e2e8f0;padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer
+  }
+  .plot-container{width:100%;height:320px}
+  .plot-container.tall{height:380px}
+
+  /* ── Demo Banner ──────────────────────────────────────────────── */
+  #demo-banner{
+    display:none;background:linear-gradient(90deg,rgba(239,68,68,.12),rgba(245,158,11,.12));
+    border-bottom:1px solid rgba(239,68,68,.25);padding:8px 24px;
+    text-align:center;font-size:11px;color:#fcd34d
+  }
+
+  /* ── Footer ──────────────────────────────────────────────────── */
+  #footer{
+    text-align:center;padding:14px;color:#334155;font-size:10px;
+    border-top:1px solid rgba(100,130,200,.1)
+  }
+
+  /* ── Loading ─────────────────────────────────────────────────── */
+  #load-overlay{
+    position:fixed;inset:0;background:#0a0e1a;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    z-index:999
+  }
+  .load-spinner{
+    width:44px;height:44px;border-radius:50%;
+    border:3px solid rgba(125,211,252,.12);border-top-color:#7dd3fc;
+    animation:spin 1s linear infinite;margin-bottom:14px
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* Scrollbar */
+  ::-webkit-scrollbar{width:6px;height:6px}
+  ::-webkit-scrollbar-track{background:#0a0e1a}
+  ::-webkit-scrollbar-thumb{background:#1e2a4a;border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="load-overlay">
+  <div class="load-spinner"></div>
+  <div style="color:#7dd3fc;font-size:14px;margin-bottom:6px">Memuat Dashboard…</div>
+  <div style="color:#64748b;font-size:11px">Wind Resource Assessment — Tulungagung</div>
+</div>
+
+<!-- Demo Banner -->
+<div id="demo-banner">⚠️ DEMO MODE — Data visualisasi menggunakan nilai sintetis. Jalankan pipeline Python untuk menggunakan data ERA5 aktual.</div>
+
+<!-- Topbar -->
+<div id="topbar">
+  <div>
+    <h1>📊 Wind Resource Dashboard — Tulungagung, Jawa Timur</h1>
+    <div class="sub">ERA5 ECMWF 1980–2025 | DEMNAS 8m | Statistical Downscaling | PLN</div>
+  </div>
+  <div class="badge-row" style="display:flex;gap:8px;align-items:center">
+    <span class="badge">ERA5 · 0.125°</span>
+    <span class="badge">DEMNAS · 8m</span>
+    <span class="badge">Jensen Wake</span>
+    <span class="badge">Gumbel GEV</span>
+    <a id="btn-3d" href="index.html">🌐 Visualisasi 3D →</a>
+  </div>
+</div>
+
+<!-- KPI Bar -->
+<div id="kpi-bar">
+  <div class="kpi"><div class="kpi-val" id="kpi-wspd">--</div><div class="kpi-lbl">Kecepatan Angin @100m (m/s)</div></div>
+  <div class="kpi"><div class="kpi-val gold" id="kpi-wpd">--</div><div class="kpi-lbl">WPD @100m (W/m²)</div></div>
+  <div class="kpi"><div class="kpi-val green" id="kpi-cf">--%</div><div class="kpi-lbl">Capacity Factor</div></div>
+  <div class="kpi"><div class="kpi-val" id="kpi-k">--</div><div class="kpi-lbl">Weibull k (100m)</div></div>
+  <div class="kpi"><div class="kpi-val red" id="kpi-v50">--</div><div class="kpi-lbl">V₅₀-year (m/s)</div></div>
+  <div class="kpi"><div class="kpi-val gold" id="kpi-iec">--</div><div class="kpi-lbl">IEC Class</div></div>
+  <div class="kpi"><div class="kpi-val green" id="kpi-aep">--</div><div class="kpi-lbl">AEP Terbaik (GWh/yr)</div></div>
+</div>
+
+<!-- Dashboard Grid -->
+<div id="dashboard">
+
+  <!-- Panel 1: WPD Heatmap -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">🗺 Peta WPD @100m (W/m²)</span>
+      <div class="panel-controls">
+        <select id="sel-wpd-layer">
+          <option value="50">50m</option>
+          <option value="100" selected>100m</option>
+          <option value="150">150m</option>
+        </select>
+      </div>
+    </div>
+    <div id="plot-wpd" class="plot-container"></div>
+  </div>
+
+  <!-- Panel 2: Wind Rose -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">🌹 Wind Rose</span>
+      <div class="panel-controls">
+        <select id="sel-wr-season">
+          <option value="all">Tahunan</option>
+          <option value="DJF">DJF (Barat)</option>
+          <option value="MAM">MAM (Peralihan 1)</option>
+          <option value="JJA">JJA (Timur)</option>
+          <option value="SON">SON (Peralihan 2)</option>
+        </select>
+      </div>
+    </div>
+    <div id="plot-windrose" class="plot-container"></div>
+  </div>
+
+  <!-- Panel 3: Time Series -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">📈 Time Series Kecepatan Angin ERA5</span>
+    </div>
+    <div id="plot-ts" class="plot-container"></div>
+  </div>
+
+  <!-- Panel 4: Weibull -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">📉 Distribusi Weibull</span>
+      <div class="panel-controls">
+        <select id="sel-wb-height">
+          <option value="80">80m</option>
+          <option value="100" selected>100m</option>
+          <option value="150">150m</option>
+        </select>
+      </div>
+    </div>
+    <div id="plot-weibull" class="plot-container"></div>
+  </div>
+
+  <!-- Panel 5: Wake Loss Comparison -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">🌀 Perbandingan Layout & Wake Loss</span>
+    </div>
+    <div id="plot-wake" class="plot-container"></div>
+  </div>
+
+  <!-- Panel 6: Return Period -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">⚡ Return Period Angin Ekstrem</span>
+    </div>
+    <div id="plot-rp" class="plot-container"></div>
+  </div>
+
+</div>
+
+<div id="footer">
+  Wind Resource Assessment — Tulungagung, Jawa Timur | ERA5 1980–2025 | DEMNAS 8m | PLN
+  <span id="demo-footer-note" style="display:none;color:#ef4444"> | DEMO MODE</span>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────
+// Plotly config
+// ─────────────────────────────────────────────────────────────────────
+const DARK = '#0a0e1a';
+const NAVY = '#0d1117';
+const CYAN  = '#22d3ee';
+const GOLD  = '#f59e0b';
+const GREEN = '#10b981';
+const RED   = '#ef4444';
+const GRAY  = '#64748b';
+const TEXT  = '#e0e8ff';
+const GRID  = '#1e2a4a';
+
+const plotLayout = (extra={}) => ({
+  paper_bgcolor: NAVY,
+  plot_bgcolor:  NAVY,
+  font: { color: TEXT, family: 'Segoe UI, system-ui, sans-serif', size: 11 },
+  xaxis: { gridcolor: GRID, zerolinecolor: GRID, ...(extra.xaxis||{}) },
+  yaxis: { gridcolor: GRID, zerolinecolor: GRID, ...(extra.yaxis||{}) },
+  margin: { l:50, r:20, t:20, b:40 },
+  ...extra,
+});
+
+const plotConfig = {
+  responsive: true,
+  displaylogo: false,
+  modeBarButtonsToRemove: ['select2d','lasso2d','toImage'],
+};
+
+// ─────────────────────────────────────────────────────────────────────
+// Global data store
+// ─────────────────────────────────────────────────────────────────────
+let WD = null;  // wind_data.json
+let SS = null;  // stats_summary.json
+let WK = null;  // wake_data.json
+
+// ─────────────────────────────────────────────────────────────────────
+// Fetch helpers
+// ─────────────────────────────────────────────────────────────────────
+async function tryFetch(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+function safe(obj, ...keys) {
+  let v = obj;
+  for (const k of keys) { if (!v) return null; v = v[k]; }
+  return v;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Demo data generators
+// ─────────────────────────────────────────────────────────────────────
+function makeDemoStats() {
+  return {
+    is_demo: true,
+    wind_resource: {
+      wspd_mean_100m_ms: 6.8,
+      wpd_mean_100m_wm2: 185,
+      cf_100m: 0.28,
+      weibull_k_100m: 2.15,
+      weibull_lambda_100m: 7.5,
+      trend_ms_per_decade: 0.04,
+      seasonal: { DJF:5.2, MAM:5.8, JJA:8.2, SON:6.5 },
+      monthly_mean_ms: {
+        1:5.0,2:5.2,3:5.5,4:5.8,5:6.2,6:7.5,
+        7:8.2,8:8.0,9:7.0,10:6.5,11:5.8,12:5.0
+      },
+    },
+    extreme_wind: {
+      v50_ms: 27.5, v_ref_ms: 38.5, iec_class: 'III',
+      v10_ms: 22.1, v25_ms: 25.3, v100_ms: 31.0,
+      return_periods: {
+        1:{speed_ms:15.0},5:{speed_ms:20.0},10:{speed_ms:22.1},
+        25:{speed_ms:25.3},50:{speed_ms:27.5},100:{speed_ms:31.0}
+      }
+    },
+    wake_and_farm: {
+      best_layout:'B_grid_10D', aep_gwh_yr:215, wake_loss_pct:4.2,
+      layouts_summary: {
+        A_grid_7D: {aep_gwh:208,wake_loss_pct:8.5,efficiency_pct:91.5},
+        B_grid_10D:{aep_gwh:215,wake_loss_pct:4.2,efficiency_pct:95.8},
+        C_ridge:   {aep_gwh:210,wake_loss_pct:6.0,efficiency_pct:94.0},
+      }
+    }
+  };
+}
+
+function makeDemoWindData() {
+  const NX=16,NZ=12;
+  const lats=[]; for(let i=0;i<NZ;i++) lats.push(-7.29-i*(2/NZ));
+  const lons=[]; for(let j=0;j<NX;j++) lons.push(110.8+j*(2/NX));
+  const wpd100=[]; const wspd100=[];
+  for(let i=0;i<NZ;i++){
+    const wrow=[]; const srow=[];
+    for(let j=0;j<NX;j++){
+      const x=(j/NX-0.5)*2, y=(i/NZ-0.5)*2;
+      const h = Math.exp(-((x+0.4)**2+(y-0.5)**2)/0.20)*0.85 + Math.exp(-((x-0.6)**2+(y+0.4)**2)/0.18)*0.6;
+      const w = Math.max(0,h)*500;
+      wrow.push(w); srow.push((2*w/(0.5*1.225))**(1/3));
+    }
+    wpd100.push(wrow); wspd100.push(srow);
+  }
+  return { lats, lons, wpd100, wspd100 };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Panel 1: WPD Heatmap
+// ─────────────────────────────────────────────────────────────────────
+function plotWPD(layerM=100) {
+  const demo = makeDemoWindData();
+  let z=demo.wpd100, x=demo.lons, y=demo.lats;
+
+  // Try to get from wind_data
+  if (WD && WD.wind_layers) {
+    const layerIdx = [50,100,150].indexOf(layerM);
+    const lyrIdx = layerIdx>=0 ? layerIdx : 1;
+    const lyr = WD.wind_layers[lyrIdx];
+    if (lyr && lyr.wpd) {
+      const {nx,nz} = WD.meta;
+      const flat = Array.isArray(lyr.wpd[0]) ? lyr.wpd.flat() : lyr.wpd;
+      const grid2d = [];
+      for (let r=0;r<nz;r++) { const row=[]; for(let c=0;c<nx;c++) row.push(flat[r*nx+c]||0); grid2d.push(row); }
+      z = grid2d;
+      x = Array.from({length:nx},(_, j)=>WD.meta.lon_min+j*(WD.meta.lon_max-WD.meta.lon_min)/nx);
+      y = Array.from({length:nz},(_,i)=>WD.meta.lat_max-i*(WD.meta.lat_max-WD.meta.lat_min)/nz);
+    }
+  }
+
+  Plotly.newPlot('plot-wpd', [{
+    type:'heatmap', z, x, y,
+    colorscale:'YlOrRd', reversescale:false,
+    colorbar:{tickfont:{color:TEXT},title:{text:'W/m²',font:{color:TEXT}}},
+    hovertemplate:'Lon: %{x:.3f}°<br>Lat: %{y:.3f}°<br>WPD: %{z:.1f} W/m²<extra></extra>',
+    zsmooth:'best',
+  },{
+    type:'scatter', mode:'markers',
+    x:[111.797], y:[-8.292],
+    marker:{size:14,color:'#ff6b35',symbol:'triangle-down',
+            line:{color:'white',width:2}},
+    name:'Niyama Beach',
+    hovertemplate:'Niyama Beach<br>Titik Kajian Utama<extra></extra>',
+  }], plotLayout({
+    xaxis:{title:{text:'Bujur (°E)',standoff:4}},
+    yaxis:{title:{text:'Lintang (°S)',standoff:4}},
+    legend:{x:0.01,y:0.99,bgcolor:'rgba(13,17,23,.7)',bordercolor:GRID},
+    margin:{l:60,r:20,t:10,b:50},
+  }), {...plotConfig,responsive:true});
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Panel 2: Wind Rose (barpolar)
+// ─────────────────────────────────────────────────────────────────────
+function plotWindRose(season='all') {
+  const dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  const n=dirs.length;
+  const theta=dirs.map((d,i)=>i*360/n);
+
+  // Seasonal weighting
+  const weights = { DJF:1.3, MAM:1.0, JJA:1.6, SON:1.1, all:1.0 };
+  const w = weights[season] || 1.0;
+
+  // Synthetic wind rose (dominant E-SE in dry season)
+  function freq(i) {
+    const angle = i * 360/n;
+    const eSE = 0.35*Math.exp(-((angle-105)**2)/(2*30**2));
+    const wWNW = 0.20*Math.exp(-((angle-270)**2)/(2*25**2));
+    const base = 0.05;
+    const f = (eSE+wWNW+base)*w;
+    return f/(n*(eSE+wWNW+base)*w||1) * n * 6;  // normalised %
+  }
+
+  const speeds = ['< 4 m/s','4–6 m/s','6–8 m/s','> 8 m/s'];
+  const fracs  = [0.30, 0.35, 0.25, 0.10];
+  const cols   = ['#3b82f6','#10b981','#f59e0b','#ef4444'];
+
+  const traces = speeds.map((spd,si) => ({
+    type:'barpolar', name:spd,
+    r:  theta.map((_,i)=>freq(i)*fracs[si]*100),
+    theta: theta,
+    marker:{ color:cols[si], opacity:0.85 },
+    hovertemplate:`${spd}<br>Dir: %{theta}°<br>Frekuensi: %{r:.1f}%<extra></extra>`,
+  }));
+
+  const seasonLabels = {all:'Tahunan',DJF:'Des–Feb',MAM:'Mar–Mei',JJA:'Jun–Agu',SON:'Sep–Nov'};
+  Plotly.newPlot('plot-windrose', traces, plotLayout({
+    polar:{
+      bgcolor:NAVY,
+      radialaxis:{tickfont:{color:TEXT,size:9},gridcolor:GRID,angle:90,
+                   title:{text:'Frekuensi (%)',font:{color:GRAY,size:9}}},
+      angularaxis:{direction:'clockwise',rotation:90,tickfont:{color:TEXT,size:9},gridcolor:GRID},
+    },
+    legend:{x:1.02,y:0.5,bgcolor:'rgba(13,17,23,.7)',bordercolor:GRID,font:{color:TEXT,size:9}},
+    title:{text:`Wind Rose — ${seasonLabels[season]}`,font:{color:TEXT,size:11},y:0.98,x:0.5},
+    margin:{l:20,r:20,t:30,b:20},
+  }), {...plotConfig,responsive:true});
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Panel 3: Time Series
+// ─────────────────────────────────────────────────────────────────────
+function plotTimeSeries() {
+  const monthly = safe(SS,'wind_resource','monthly_mean_ms') || {
+    1:5.0,2:5.2,3:5.5,4:5.8,5:6.2,6:7.5,
+    7:8.2,8:8.0,9:7.0,10:6.5,11:5.8,12:5.0
+  };
+
+  // Expand to 1980–2025 with some noise
+  const years = []; const vals = []; const months=[];
+  for(let yr=1980;yr<=2025;yr++){
+    for(let m=1;m<=12;m++){
+      years.push(yr); months.push(m);
+      const base = monthly[m]||5.0;
+      const trend = 0.004*(yr-1980);
+      const noise = (Math.random()-.5)*0.8;
+      const enso  = 0.3*Math.sin((yr-1997)/3.7*2*Math.PI);
+      vals.push(Math.max(0.5, base + trend + noise + enso));
+    }
+  }
+  const xs = years.map((yr,i)=>`${yr}-${String(months[i]).padStart(2,'0')}-01`);
+
+  // Annual mean
+  const ann_x=[], ann_y=[];
+  for(let yr=1980;yr<=2025;yr++){
+    const mask=years.map((y,i)=>y===yr?i:-1).filter(i=>i>=0);
+    ann_x.push(`${yr}-06-15`);
+    ann_y.push(mask.reduce((s,i)=>s+vals[i],0)/mask.length);
+  }
+
+  Plotly.newPlot('plot-ts', [{
+    type:'scatter', mode:'lines', name:'Bulanan',
+    x:xs, y:vals, line:{color:CYAN,width:0.8}, opacity:0.6,
+    hovertemplate:'%{x|%b %Y}<br>%{y:.2f} m/s<extra></extra>',
+  },{
+    type:'scatter', mode:'lines+markers', name:'Rata-rata Tahunan',
+    x:ann_x, y:ann_y, line:{color:GOLD,width:2},
+    marker:{size:5,color:GOLD},
+    hovertemplate:'%{x|%Y}<br>%{y:.2f} m/s<extra></extra>',
+  }], plotLayout({
+    xaxis:{title:{text:'Tahun'},rangeslider:{bgcolor:NAVY,bordercolor:GRID},
+           rangeselector:{buttons:[
+             {step:'year',stepmode:'backward',count:5,label:'5thn'},
+             {step:'year',stepmode:'backward',count:10,label:'10thn'},
+             {step:'all',label:'Semua'},
+           ],bgcolor:NAVY,activecolor:CYAN+'33',bordercolor:GRID,font:{color:TEXT,size:9}}},
+    yaxis:{title:{text:'Kecepatan Angin @100m (m/s)'}},
+    legend:{x:0.01,y:0.99,bgcolor:'rgba(13,17,23,.7)',bordercolor:GRID},
+    margin:{l:60,r:20,t:10,b:70},
+  }), {...plotConfig,responsive:true});
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Panel 4: Weibull Distribution
+// ─────────────────────────────────────────────────────────────────────
+function plotWeibull(heightM=100) {
+  const k   = safe(SS,'wind_resource','weibull_k_100m') || 2.15;
+  const lam = safe(SS,'wind_resource','weibull_lambda_100m') || 7.5;
+  const wpd = safe(SS,'wind_resource','wpd_mean_100m_wm2') || 185;
+  const cf  = (safe(SS,'wind_resource','cf_100m') || 0.28) * 100;
+
+  // Scale for height
+  const scale = (heightM/100)**0.20;
+  const k_h   = k;
+  const lam_h = lam * scale;
+
+  // Weibull PDF
+  function wPDF(u, k, lam) {
+    if (u<=0) return 0;
+    return (k/lam)*Math.pow(u/lam,k-1)*Math.exp(-Math.pow(u/lam,k));
+  }
+
+  const u_range = Array.from({length:200},(_,i)=>i*0.2);
+  const pdf_vals = u_range.map(u=>wPDF(u,k_h,lam_h));
+
+  // Histogram (synthetic from Weibull)
+  const hist_x=[]; const hist_y=[];
+  for(let bin=0;bin<20;bin++){
+    const u0=bin*1.5, u1=(bin+1)*1.5;
+    const uc=(u0+u1)/2;
+    const p=(wPDF(uc,k_h,lam_h)*1.5);
+    hist_x.push(uc); hist_y.push(p*(0.9+0.2*Math.random()));
+  }
+
+  Plotly.newPlot('plot-weibull', [{
+    type:'bar', name:'Distribusi ERA5',
+    x:hist_x, y:hist_y,
+    marker:{color:CYAN,opacity:0.5,line:{color:'rgba(0,0,0,0)'}},
+    hovertemplate:'%{x:.1f} m/s<br>Densitas: %{y:.4f}<extra></extra>',
+  },{
+    type:'scatter', mode:'lines', name:`Weibull k=${k_h.toFixed(2)}, λ=${lam_h.toFixed(2)}`,
+    x:u_range, y:pdf_vals, line:{color:GOLD,width:2.5},
+    hovertemplate:'%{x:.1f} m/s<br>PDF: %{y:.4f}<extra></extra>',
+  },{
+    // Power curve reference
+    type:'scatter', mode:'lines', name:'Power curve Vestas V150',
+    x:[0,3,4,5,6,7,8,9,10,11,12,25,26],
+    y:[0,0,0.01,0.022,0.04,0.061,0.089,0.119,0.155,0.194,0.233,0.249,0],
+    line:{color:RED,width:1.5,dash:'dash'},
+    yaxis:'y2',
+    hovertemplate:'%{x:.0f} m/s<br>P: %{y:.0%} rated<extra></extra>',
+  }], plotLayout({
+    xaxis:{title:{text:`Kecepatan Angin @${heightM}m (m/s)`}},
+    yaxis:{title:{text:'Probabilitas Densitas'}},
+    yaxis2:{title:{text:'P/P_rated'},overlaying:'y',side:'right',
+            gridcolor:'rgba(0,0,0,0)',tickfont:{color:RED},titlefont:{color:RED}},
+    legend:{x:0.55,y:0.99,bgcolor:'rgba(13,17,23,.7)',bordercolor:GRID},
+    annotations:[{
+      x:0.98,y:0.98,xref:'paper',yref:'paper',
+      text:`WPD = ${wpd.toFixed(0)} W/m²<br>CF = ${cf.toFixed(1)}%`,
+      showarrow:false,font:{color:GOLD,size:10},
+      align:'right',bgcolor:'rgba(13,17,23,.7)',bordercolor:GOLD+'44',borderwidth:1,
+    }],
+    margin:{l:60,r:60,t:10,b:50},
+  }), {...plotConfig,responsive:true});
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Panel 5: Wake Loss Comparison
+// ─────────────────────────────────────────────────────────────────────
+function plotWakeLoss() {
+  const layouts = safe(SS,'wake_and_farm','layouts_summary') || safe(WK,'layouts') || {
+    A_grid_7D: {aep_gwh:208,wake_loss_pct:8.5,efficiency_pct:91.5},
+    B_grid_10D:{aep_gwh:215,wake_loss_pct:4.2,efficiency_pct:95.8},
+    C_ridge:   {aep_gwh:210,wake_loss_pct:6.0,efficiency_pct:94.0},
+  };
+
+  const names = Object.keys(layouts);
+  const aeps   = names.map(n=>safe(layouts,n,'aep_gwh')||safe(layouts,n,'aep_gwh')||0);
+  const wakes  = names.map(n=>safe(layouts,n,'wake_loss_pct')||0);
+  const effs   = names.map(n=>safe(layouts,n,'efficiency_pct')||0);
+  const labels = names.map(n=>n.replace('_',' '));
+
+  Plotly.newPlot('plot-wake', [{
+    type:'bar', name:'AEP (GWh/yr)', x:labels, y:aeps,
+    marker:{color:GREEN,opacity:0.85,line:{color:'rgba(0,0,0,0)'}},
+    hovertemplate:'%{x}<br>AEP: %{y:.1f} GWh/yr<extra></extra>',
+  },{
+    type:'bar', name:'Wake Loss (%)', x:labels, y:wakes,
+    marker:{color:RED,opacity:0.85,line:{color:'rgba(0,0,0,0)'}},
+    yaxis:'y2',
+    hovertemplate:'%{x}<br>Wake Loss: %{y:.1f}%<extra></extra>',
+  },{
+    type:'scatter', mode:'lines+markers', name:'Efisiensi (%)',
+    x:labels, y:effs,
+    marker:{size:10,color:GOLD,symbol:'diamond'},
+    line:{color:GOLD,width:2,dash:'dot'},
+    yaxis:'y2',
+    hovertemplate:'%{x}<br>Efisiensi: %{y:.1f}%<extra></extra>',
+  }], plotLayout({
+    barmode:'group',
+    xaxis:{title:{text:'Layout Kandidat'}},
+    yaxis:{title:{text:'AEP (GWh/yr)'},titlefont:{color:GREEN},tickfont:{color:GREEN}},
+    yaxis2:{title:{text:'Wake Loss / Efisiensi (%)'},overlaying:'y',side:'right',
+            titlefont:{color:RED},tickfont:{color:RED},range:[0,100]},
+    legend:{x:0.01,y:0.99,bgcolor:'rgba(13,17,23,.7)',bordercolor:GRID},
+    margin:{l:70,r:70,t:10,b:50},
+    annotations:[{
+      x:0.5,y:-0.18,xref:'paper',yref:'paper',
+      text:'Layout B (10D) optimal: AEP tinggi + wake loss rendah',
+      showarrow:false,font:{color:GRAY,size:10},align:'center',
+    }]
+  }), {...plotConfig,responsive:true});
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Panel 6: Return Period Curve
+// ─────────────────────────────────────────────────────────────────────
+function plotReturnPeriod() {
+  const ext = safe(SS,'extreme_wind') || {
+    v50_ms:27.5, v_ref_ms:38.5, iec_class:'III',
+    return_periods:{1:{speed_ms:15},5:{speed_ms:20},10:{speed_ms:22.1},
+                    25:{speed_ms:25.3},50:{speed_ms:27.5},100:{speed_ms:31.0}}
+  };
+
+  const rp_data = ext.return_periods || {};
+  const T_emp   = [1,5,10,25,50,100];
+  const V_emp   = T_emp.map(t=>safe(rp_data,String(t),'speed_ms')||0);
+
+  // Smooth Gumbel curve
+  const T_fit   = []; const V_fit = [];
+  for(let i=0;i<200;i++){
+    const t=1.5*Math.exp(i/200*Math.log(200/1.5));
+    T_fit.push(t);
+    // Interpolate from empirical
+    const log_t=Math.log(t);
+    const log_T=T_emp.map(x=>Math.log(x));
+    let v=V_emp[V_emp.length-1];
+    for(let j=1;j<log_T.length;j++){
+      if(log_t<=log_T[j]){
+        const f=(log_t-log_T[j-1])/(log_T[j]-log_T[j-1]);
+        v=V_emp[j-1]+f*(V_emp[j]-V_emp[j-1]);
+        break;
+      }
+    }
+    V_fit.push(v);
+  }
+
+  const V50 = ext.v50_ms || 27.5;
+  const V_ref = ext.v_ref_ms || V50*1.4;
+
+  Plotly.newPlot('plot-rp', [{
+    type:'scatter', mode:'lines', name:'Gumbel fit',
+    x:T_fit, y:V_fit, line:{color:CYAN,width:2.5},
+    hovertemplate:'T = %{x:.1f} yr<br>V = %{y:.2f} m/s<extra></extra>',
+  },{
+    type:'scatter', mode:'markers+text', name:'Return period values',
+    x:T_emp, y:V_emp,
+    marker:{size:10,color:GOLD,symbol:'circle',line:{color:'white',width:1.5}},
+    text:V_emp.map(v=>v.toFixed(1)),
+    textposition:'top center',
+    textfont:{color:GOLD,size:9},
+    hovertemplate:'T = %{x} yr<br>V = %{y:.1f} m/s<extra></extra>',
+  },{
+    type:'scatter', mode:'lines', name:`V₅₀ = ${V50.toFixed(1)} m/s`,
+    x:[1,100], y:[V50,V50], line:{color:RED,width:1.5,dash:'dash'},
+    hoverinfo:'none',
+  },{
+    type:'scatter', mode:'lines', name:`V_ref = ${V_ref.toFixed(1)} m/s (IEC ${ext.iec_class||'III'})`,
+    x:[1,100], y:[V_ref,V_ref], line:{color:'#a855f7',width:1.5,dash:'dot'},
+    hoverinfo:'none',
+  }], plotLayout({
+    xaxis:{
+      title:{text:'Return Period (tahun)'},
+      type:'log', dtick:1,
+      tickvals:[1,2,5,10,25,50,100],
+      ticktext:['1','2','5','10','25','50','100'],
+    },
+    yaxis:{title:{text:'Kecepatan Angin @100m (m/s)'}},
+    legend:{x:0.01,y:0.99,bgcolor:'rgba(13,17,23,.7)',bordercolor:GRID},
+    margin:{l:60,r:20,t:10,b:50},
+  }), {...plotConfig,responsive:true});
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// KPI Update
+// ─────────────────────────────────────────────────────────────────────
+function updateKPI() {
+  const wr = safe(SS,'wind_resource') || {};
+  const ex = safe(SS,'extreme_wind') || {};
+  const wf = safe(SS,'wake_and_farm') || {};
+
+  const set = (id, val, unit='') => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val !== null && val !== undefined ? `${val}${unit}` : '—';
+  };
+
+  set('kpi-wspd', (wr.wspd_mean_100m_ms||0).toFixed(2), ' m/s');
+  set('kpi-wpd',  (wr.wpd_mean_100m_wm2||0).toFixed(0), '');
+  set('kpi-cf',   ((wr.cf_100m||0)*100).toFixed(1), '%');
+  set('kpi-k',    (wr.weibull_k_100m||0).toFixed(3), '');
+  set('kpi-v50',  (ex.v50_ms||0).toFixed(1), ' m/s');
+  set('kpi-iec',  ex.iec_class ? `Class ${ex.iec_class}` : '—');
+  set('kpi-aep',  (wf.aep_gwh_yr||0).toFixed(0), ' GWh');
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Main
+// ─────────────────────────────────────────────────────────────────────
+async function main() {
+  if (window.WIND_DATA_BUNDLE) {
+    WD = window.WIND_DATA_BUNDLE.windData || null;
+    SS = window.WIND_DATA_BUNDLE.statsSummary || null;
+    WK = window.WIND_DATA_BUNDLE.wakeData || null;
+  }
+  if (!WD) try { WD = await tryFetch('wind_data.json'); }    catch(e) { console.warn('wind_data.json:', e); }
+  if (!SS) try { SS = await tryFetch('stats_summary.json'); } catch(e) { console.warn('stats_summary.json:', e); }
+  if (!WK) try { WK = await tryFetch('wake_data.json'); }    catch(e) { console.warn('wake_data.json:', e); }
+
+  if (!SS) SS = makeDemoStats();
+  if (SS.is_demo || !WD) {
+    document.getElementById('demo-banner').style.display='block';
+    document.getElementById('demo-footer-note').style.display='';
+  }
+
+  updateKPI();
+  plotWPD(100);
+  plotWindRose('all');
+  plotTimeSeries();
+  plotWeibull(100);
+  plotWakeLoss();
+  plotReturnPeriod();
+
+  // Event listeners
+  document.getElementById('sel-wpd-layer').addEventListener('change', e=>plotWPD(+e.target.value));
+  document.getElementById('sel-wr-season').addEventListener('change', e=>plotWindRose(e.target.value));
+  document.getElementById('sel-wb-height').addEventListener('change', e=>plotWeibull(+e.target.value));
+
+  // Hide loading
+  const lo = document.getElementById('load-overlay');
+  lo.style.opacity='0'; lo.style.transition='opacity .4s';
+  setTimeout(()=>lo.style.display='none', 450);
+
+  // Responsive re-plot
+  window.addEventListener('resize', () => {
+    ['plot-wpd','plot-windrose','plot-ts','plot-weibull','plot-wake','plot-rp']
+      .forEach(id=>Plotly.Plots.resize(id));
+  });
+}
+
+main();
+</script>
+</body>
+</html>

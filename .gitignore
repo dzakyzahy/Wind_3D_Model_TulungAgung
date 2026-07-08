@@ -1,0 +1,45 @@
+# Master Prompt Folder (sesuai instruksi)
+masterprompt/
+masterprompt.txt
+
+# Large Raw Data Folders (Data Besar GIS / MetOcean)
+Data/Demnas/
+Data/Batnas/
+Data/Texture/
+Data/RBI/
+Data/era5/
+Data/era5_missing/
+Data/bmkg/
+Data/srtm/
+
+# Reference Textbooks & Large Docs (Buku Referensi PDF Besar)
+Referensi/*.pdf
+
+# Large file extensions & raster/archive formats
+*.tif
+*.tiff
+*.nc
+*.nc4
+*.grib
+*.grib2
+*.zip
+*.gz
+*.tar
+*.rar
+*.7z
+*.mxd
+
+# Python / Environment / IDE / Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
+ENV/
+.vscode/
+.idea/
+*.log
+.DS_Store
+Thumbs.db

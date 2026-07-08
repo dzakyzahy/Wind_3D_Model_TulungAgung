@@ -1,0 +1,111 @@
+{
+  "is_demo": false,
+  "site": "Niyama Beach, Tulungagung",
+  "lat": -8.292,
+  "lon": 111.797,
+  "threshold_ms": 17.0,
+  "total_extreme_hours": 0,
+  "extreme_fraction_pct": 0.0,
+  "ewd_events_total": 9391,
+  "gumbel_loc": 11.9844,
+  "gumbel_scale": 0.5468,
+  "return_periods": {
+    "1": {
+      "speed_ms": -Infinity,
+      "v_ref_ms": -Infinity
+    },
+    "5": {
+      "speed_ms": 12.8,
+      "v_ref_ms": 17.92
+    },
+    "10": {
+      "speed_ms": 13.21,
+      "v_ref_ms": 18.49
+    },
+    "25": {
+      "speed_ms": 13.73,
+      "v_ref_ms": 19.22
+    },
+    "50": {
+      "speed_ms": 14.12,
+      "v_ref_ms": 19.77
+    },
+    "100": {
+      "speed_ms": 14.5,
+      "v_ref_ms": 20.3
+    }
+  },
+  "v50_ms": 14.12,
+  "v_ref_ms": 19.77,
+  "iec_class": "S (site-specific)",
+  "iec_description": "IEC Class S (site-specific) | V_ref=19.8 m/s",
+  "v50_ci90_lo": 13.65,
+  "v50_ci90_hi": 14.58,
+  "seasonality_hours_per_month_per_yr": {
+    "1": 0.0,
+    "2": 0.0,
+    "3": 0.0,
+    "4": 0.0,
+    "5": 0.0,
+    "6": 0.0,
+    "7": 0.0,
+    "8": 0.0,
+    "9": 0.0,
+    "10": 0.0,
+    "11": 0.0,
+    "12": 0.0
+  },
+  "enso_correlation_r": NaN,
+  "enso_correlation_p": NaN,
+  "annual_max_ms": [
+    12.44,
+    11.67,
+    12.91,
+    12.88,
+    11.22,
+    12.01,
+    12.18,
+    12.17,
+    12.41,
+    12.11,
+    11.58,
+    11.76,
+    13.22,
+    12.32,
+    13.51,
+    13.49,
+    12.0,
+    12.99,
+    11.45,
+    13.27,
+    11.42,
+    14.63,
+    11.47,
+    11.94,
+    12.43,
+    11.29,
+    11.99,
+    12.07,
+    12.04,
+    12.24,
+    12.13,
+    12.09,
+    11.63,
+    13.87,
+    11.87,
+    11.95,
+    13.41,
+    12.22,
+    12.82,
+    12.13,
+    13.21,
+    11.47,
+    11.97,
+    12.0,
+    12.01,
+    12.31
+  ],
+  "n_years": 46,
+  "weibull_k_100m": 2.0137,
+  "weibull_lambda_100m": 4.8169
+}

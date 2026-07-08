@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wind Resource Assessment 3D — Tulungagung, Jawa Timur | ERA5 + DEMNAS</title>
+  <meta name="description"
+    content="Visualisasi 3D interaktif kajian sumber daya angin Tulungagung. Wind Power Density, wake effect, dan extreme wind berbasis ERA5 1980–2025 + DEMNAS 8m.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+  <!-- Loading Overlay dengan Logo ITB & PLN -->
+  <div id="loading">
+    <div class="load-logos">
+      <img src="Logo_ITB.png" onerror="this.src='../Logo_ITB.png'" alt="Logo ITB" class="loading-logo">
+      <div class="logo-divider"></div>
+      <img src="Logo_PLN.png" onerror="this.src='../Logo_PLN.png'" alt="Logo PLN" class="loading-logo">
+    </div>
+    <div class="spinner-wrap">
+      <div class="spinner"></div>
+      <div class="spinner2"></div>
+    </div>
+    <h2>Wind Resource Assessment 3D</h2>
+    <div id="loading-sub">Tulungagung & Trenggalek, Jawa Timur | ERA5 + DEMNAS</div>
+    <div id="progress-bar">
+      <div id="progress-fill"></div>
+    </div>
+    <div id="loading-msg">Inisialisasi pemodelan topografi 3D…</div>
+  </div>
+
+  <!-- Demo Watermark -->
+  <div id="demo-overlay">DEMO MODE</div>
+
+  <!-- Header Bar -->
+  <div id="header">
+    <div id="title-block">
+      <h1>🌬 Wind Resource Assessment — Tulungagung, Jawa Timur</h1>
+      <p>ERA5 1980–2025 | DEMNAS 8m | Statistical Downscaling | Jackson-Hunt Correction</p>
+    </div>
+    <div class="header-right">
+      <div id="data-badge">ERA5 · DEMNAS · 46yr</div>
+      <a id="dash-btn" href="dashboard.html">📊 Menuju ke Dashboard ➔</a>
+    </div>
+  </div>
+
+  <!-- Floating Button untuk Menampilkan Kembali Panel saat Disembunyikan -->
+  <button id="btn-toggle-panel">⚙️ Tampilkan Kontrol</button>
+
+  <!-- 3D Canvas -->
+  <div id="canvas-container"><canvas id="three-canvas"></canvas></div>
+
+  <!-- Control Panel (Scrollable & Hideable) -->
+  <div id="panel">
+    <div class="panel-header">
+      <h2>⚙ Kontrol Visualisasi</h2>
+      <button id="btn-minimize-panel" title="Sembunyikan Panel">✕</button>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-play">⏸ Pause</button>
+      <button class="btn btn-secondary" id="btn-reset">↺ Reset</button>
+      <button class="btn btn-secondary" id="btn-fit-turbines">⊕ Fit Turbin</button>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-label">Hub Height <span id="lbl-layer">100m</span></div>
+      <select id="sel-height">
+        <option value="0">50m AGL</option>
+        <option value="1" selected>100m AGL</option>
+        <option value="2">150m AGL</option>
+      </select>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-label">Jumlah Partikel <span id="lbl-particles">500</span></div>
+      <input type="range" id="sl-particles" min="100" max="1000" step="50" value="500">
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-label">Kecepatan Animasi <span id="lbl-speed">1.0×</span></div>
+      <input type="range" id="sl-speed" min="0.3" max="3" step="0.1" value="1.0">
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-label">Interval Ghost Trail <span id="lbl-ghost">5s</span></div>
+      <input type="range" id="sl-ghost" min="1" max="15" step="1" value="5">
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-label">Durasi Jejak <span id="lbl-ghost-age">15s</span></div>
+      <input type="range" id="sl-ghost-age" min="5" max="30" step="5" value="15">
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-label">Skala Ketinggian <span id="lbl-elev">0.45×</span></div>
+      <input type="range" id="sl-elev" min="0.2" max="4" step="0.05" value="0.45">
+    </div>
+
+    <div class="sep"></div>
+    <div class="section-title">Layer Overlay</div>
+
+    <div class="layer-item">
+      <input type="checkbox" id="cb-particles" checked>
+      <div class="layer-dot" style="background:#22c55e"></div>
+      <label for="cb-particles">Partikel Angin & Jejak</label>
+    </div>
+    <div class="layer-item">
+      <input type="checkbox" id="cb-wpd">
+      <div class="layer-dot" style="background:#ef4444"></div>
+      <label for="cb-wpd">WPD Heatmap</label>
+    </div>
+    <div class="layer-item" style="flex-wrap:wrap; gap:4px;">
+      <input type="checkbox" id="cb-satellite">
+      <div class="layer-dot" style="background:#22d3ee"></div>
+      <label for="cb-satellite">Tekstur Satelit</label>
+      <select id="sel-sat-type" style="margin-left:auto; background:#1e293b; color:#fff; border:1px solid #38bdf8; border-radius:4px; padding:2px 6px; font-size:12px; cursor:pointer;">
+        <option value="sentinel2" selected>Sentinel-2 (1.2GB Resampled)</option>
+        <option value="google">Google Satelit (Eksisting)</option>
+      </select>
+    </div>
+    <div class="layer-item">
+      <input type="checkbox" id="cb-turbine">
+      <div class="layer-dot" style="background:#f59e0b"></div>
+      <label for="cb-turbine">Turbin Kandidat</label>
+    </div>
+    <div class="layer-item">
+      <input type="checkbox" id="cb-wake">
+      <div class="layer-dot" style="background:#ef444488"></div>
+      <label for="cb-wake">Wake Shadow</label>
+    </div>
+    <div class="layer-item">
+      <input type="checkbox" id="cb-extreme">
+      <div class="layer-dot" style="background:#a855f7"></div>
+      <label for="cb-extreme">Zona Angin Ekstrem</label>
+    </div>
+    <div class="layer-item">
+      <input type="checkbox" id="cb-water" checked>
+      <div class="layer-dot" style="background:#0369a1"></div>
+      <label for="cb-water">🌊 Permukaan Laut (MSL)</label>
+    </div>
+    <div class="layer-item">
+      <input type="checkbox" id="cb-rbi-roads">
+      <div class="layer-dot" style="background:#fbbf24"></div>
+      <label for="cb-rbi-roads">🛣️ Jalan Raya (RBI)</label>
+    </div>
+    <div class="layer-item">
+      <input type="checkbox" id="cb-rbi-rivers">
+      <div class="layer-dot" style="background:#38bdf8"></div>
+      <label for="cb-rbi-rivers">🌊 Sungai (RBI)</label>
+    </div>
+    <div class="layer-item">
+      <input type="checkbox" id="cb-rbi-admin">
+      <div class="layer-dot" style="background:#f8fafc"></div>
+      <label for="cb-rbi-admin">🗺️ Batas Wilayah (RBI)</label>
+    </div>
+
+    <div class="sep"></div>
+    <div class="section-title">Elemen UI & GIS</div>
+
+    <div class="layer-item">
+      <input type="checkbox" id="cb-val-plane">
+      <div class="layer-dot" style="background:#a855f7"></div>
+      <label for="cb-val-plane">🗺️ Peta Datar Validasi (Di Atas Gunung)</label>
+    </div>
+    <div class="layer-item">
+      <input type="checkbox" id="cb-labels" checked>
+      <div class="layer-dot" style="background:#ffd700"></div>
+      <label for="cb-labels">🏷️ Label Geografis (Kota/Gunung)</label>
+    </div>
+    <div class="layer-item">
+      <input type="checkbox" id="cb-compass" checked>
+      <div class="layer-dot" style="background:#ef4444"></div>
+      <label for="cb-compass">🧭 Mata Angin & Grid</label>
+    </div>
+
+    <div class="sep"></div>
+    <div id="stats-display">
+      <div class="stat-row"><span>WPD rata-rata</span><b id="disp-wpd">-- W/m²</b></div>
+      <div class="stat-row"><span>CF estimasi</span><b id="disp-cf">--%</b></div>
+      <div class="stat-row"><span>Weibull k</span><b id="disp-k">--</b></div>
+      <div class="stat-row"><span>V50-year</span><b id="disp-v50">-- m/s</b></div>
+      <div class="stat-row"><span>IEC Class</span><b id="disp-iec">--</b></div>
+      <div class="stat-row"><span>TI estimasi</span><b id="disp-ti">--%</b></div>
+      <div class="stat-row"><span>Wake loss farm</span><b id="disp-wake-loss">--%</b></div>
+      <div class="stat-row"><span>AEP estimasi</span><b id="disp-aep">-- GWh/yr</b></div>
+      <div class="stat-row"><span>z0 roughness</span><b id="disp-z0">-- m</b></div>
+      <div class="stat-row"><span>Partikel aktif</span><b id="disp-nparticle">--</b></div>
+    </div>
+    <button id="btn-screenshot-panel">📷 Simpan PNG 4K / HD</button>
+  </div>
+
+  <!-- Dynamic Colorbars Container (Stacking according to active layers) -->
+  <div id="colorbars-container">
+    <div id="colorbar-wind" class="colorbar-card active">
+      <h3>Kecepatan Angin</h3>
+      <div class="colorbar-gradient grad-wind"></div>
+      <div class="colorbar-labels"><span>0</span><span id="cb-max">--</span></div>
+      <div class="colorbar-unit">m/s</div>
+    </div>
+    <div id="colorbar-wpd" class="colorbar-card">
+      <h3>WPD Heatmap</h3>
+      <div class="colorbar-gradient grad-wpd"></div>
+      <div class="colorbar-labels"><span>0</span><span id="cb-max-wpd">--</span></div>
+      <div class="colorbar-unit">W/m²</div>
+    </div>
+    <div id="colorbar-extreme" class="colorbar-card">
+      <h3>Zona Ekstrem (Top 20%)</h3>
+      <div class="colorbar-gradient grad-extreme"></div>
+      <div class="colorbar-labels"><span id="cb-min-extreme">--</span><span id="cb-max-extreme">--</span></div>
+      <div class="colorbar-unit">m/s</div>
+    </div>
+  </div>
+
+  <!-- Dynamic Scalebar (ArcGIS/QGIS Hydrographic Style) -->
+  <div id="scalebar">
+    <div id="scalebar-inner" style="width:80px"></div>
+    <p id="scalebar-text">~25 km</p>
+  </div>
+
+  <!-- Bundled Data (CORS Bypass untuk protokol file://) -->
+  <script src="data_bundle.js"></script>
+  <script src="satellite_bundle.js"></script>
+  <script src="sentinel2_bundle.js"></script>
+  <script src="rbi_bundle.js"></script>
+
+  <!-- Modular Scripts -->
+  <script src="js/config.js"></script>
+  <script src="js/physics.js"></script>
+  <script src="js/data_loader.js"></script>
+  <script src="js/scene_helpers.js"></script>
+  <script src="js/ui_controls.js"></script>
+
+  <!-- Three.js via importmap -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <!-- Inisialisasi Aplikasi 3D -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const state = {
+      windData: null,
+      wakeData: null,
+      currentLayer: 1,
+      playing: true,
+      elevScale: 0.45,
+      animSpeed: 1.0,
+      nParticles: 500,
+      ghostDepositInterval: 5.0,
+      ghostMaxAge: 15.0,
+      showParticles: true,
+      showWPD: false,
+      showTurbine: false,
+      showWake: false,
+      showExtreme: false,
+      useSatTexture: false,
+      satType: 'sentinel2',
+      showValPlane: false,
+      useWaterSurface: true,
+      useRBIRoads: false,
+      useRBIRivers: false,
+      useRBIAdmin: false,
+      showLabels: true,
+      showCompass: true,
+      terrainMesh: null,
+      wireMesh: null,
+      waterMesh: null,
+      wpdOverlay: null,
+      turbineGroup: null,
+      wakeGroup: null,
+      extremeGroup: null,
+      satTexGoogle: null,
+      satTexSentinel: null,
+      valPlaneMesh: null,
+      rbiGroup: { roads: null, rivers: null, admin: null },
+      labelGroup: null,
+      compassGridGroup: null,
+      particleSystem: null,
+      ghostMesh: null,
+      ghostTrails: [],
+      pHistX: null, pHistY: null, pHistZ: null, pAges: null, pLife: null
+    };
+
+    const canvas = document.getElementById('three-canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0e1a);
+    scene.fog = new THREE.FogExp2(0x0a0e1a, 0.008);
+
+    const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.1, 2000);
+    const INITIAL_CAM = window.WindConfig.INITIAL_CAM;
+    camera.position.set(INITIAL_CAM.x, INITIAL_CAM.y, INITIAL_CAM.z);
+    camera.lookAt(0, 0, 0);
+
+    const controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.minDistance = 1.5;
+    controls.maxDistance = 180;
+    controls.enablePan = true;
+    controls.panSpeed = 0.8;
+    controls.zoomSpeed = 1.2;
+    controls.maxPolarAngle = Math.PI / 2.05;
+
+    scene.add(new THREE.AmbientLight(0x334466, 1.8));
+    const sun = new THREE.DirectionalLight(0xfff5e0, 3.0);
+    sun.position.set(6, 14, 8);
+    scene.add(sun);
+    const fill = new THREE.DirectionalLight(0x4488bb, 1.0);
+    fill.position.set(-6, 4, -6);
+    scene.add(fill);
+
+    function setProgress(pct, msg) {
+      const fillBar = document.getElementById('progress-fill');
+      const msgBox = document.getElementById('loading-msg');
+      if (fillBar) fillBar.style.width = pct + '%';
+      if (msgBox && msg) msgBox.textContent = msg;
+    }
+
+    async function initApp() {
+      const loaded = await window.WindDataLoader.loadData(setProgress);
+      state.windData = loaded.windData;
+      state.wakeData = loaded.wakeData;
+
+      setProgress(70, 'Membangun pemodelan terrain 3D…');
+      window.WindSceneHelpers.buildTerrain(state.windData, scene, THREE, state, renderer, camera);
+      window.WindSceneHelpers.buildValidationPlane(state.windData, scene, THREE, state);
+
+      setProgress(80, 'Menyiapkan layer overlay meteorologi…');
+      window.WindSceneHelpers.buildWPDOverlay(state.windData, scene, THREE, state);
+      window.WindSceneHelpers.buildTurbines(state.windData, state.wakeData, scene, THREE, state);
+      window.WindSceneHelpers.buildWake(state.windData, state.wakeData, scene, THREE, state);
+      window.WindSceneHelpers.buildExtremeZone(state.windData, scene, THREE, state);
+      window.WindSceneHelpers.buildRBIOverlay(state.windData, scene, THREE, state);
+
+      setProgress(90, 'Membuat simulasi partikel angin & ghost trails…');
+      window.WindSceneHelpers.initParticles(state.nParticles, scene, THREE, state);
+      window.WindSceneHelpers.initGhostMesh(scene, THREE, state);
+      window.WindSceneHelpers.addLabelsAndCompass(scene, THREE, state);
+
+      window.WindUI.updateUI(state);
+      window.WindUI.setupEventListeners(state, camera, controls, renderer, scene, THREE, canvas);
+      window.WindSceneHelpers.updateScaleBar(camera, controls);
+
+      setProgress(100, 'Siap!');
+      await new Promise(r => setTimeout(r, 450));
+      const lo = document.getElementById('loading');
+      if (lo) {
+        lo.style.opacity = '0';
+        setTimeout(() => lo.style.display = 'none', 600);
+      }
+    }
+
+    let lastTime = 0;
+    let lastGhostTime = 0;
+    function animate(t) {
+      requestAnimationFrame(animate);
+      const dt = Math.min((t - lastTime) * 0.001, 0.05);
+      lastTime = t;
+
+      if (state.playing) {
+        window.WindSceneHelpers.updateParticles(dt, state, THREE);
+        lastGhostTime += dt;
+        if (lastGhostTime >= state.ghostDepositInterval) {
+          window.WindSceneHelpers.depositGhostTrails(state, THREE);
+          lastGhostTime = 0;
+        }
+        window.WindSceneHelpers.updateGhostMesh(dt, state);
+
+        if (state.turbineGroup && state.turbineGroup.visible) {
+          state.turbineGroup.children.forEach(child => {
+            if (child.userData.isRotor) {
+              child.rotation.z += dt * 0.8 * state.animSpeed;
+            }
+          });
+        }
+      }
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    initApp().then(() => animate(0));
+  </script>
+</body>
+
+</html>

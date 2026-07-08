@@ -1,0 +1,93 @@
+{
+  "project": "Wind Resource Assessment Tulungagung",
+  "client": "PLN",
+  "site": "Niyama Beach, Tulungagung",
+  "lat": -8.292,
+  "lon": 111.797,
+  "data_source": "ERA5 ECMWF 1980\u20132025 + DEMNAS 8m + Jackson-Hunt",
+  "is_demo": false,
+  "wind_resource": {
+    "wspd_mean_10m_ms": 2.688,
+    "wspd_mean_100m_ms": 4.26,
+    "wpd_mean_100m_wm2": 90.3,
+    "cf_100m": 0.0994,
+    "weibull_k_100m": 2.0137,
+    "weibull_lambda_100m": 4.8169,
+    "trend_ms_per_decade": -0.0159,
+    "seasonal": {
+      "DJF": 2.1856722247009324,
+      "MAM": 2.1843061074012367,
+      "JJA": 3.48405111023426,
+      "SON": 2.891440781802061
+    }
+  },
+  "extreme_wind": {
+    "v50_ms": 14.12,
+    "v_ref_ms": 19.77,
+    "iec_class": "S (site-specific)",
+    "iec_description": "IEC Wind Class S (site-specific)",
+    "v10_ms": 13.21,
+    "v25_ms": 13.73,
+    "v100_ms": 14.5
+  },
+  "wake_and_farm": {
+    "best_layout": "C_ridge",
+    "aep_gwh_yr": 93.09,
+    "wake_loss_pct": 4.94,
+    "n_turbines": 25,
+    "rotor_diameter_m": 150.0,
+    "rated_kw": 4500.0,
+    "hub_height_m": 100.0,
+    "layouts_summary": {
+      "A_grid_7D": {
+        "label": "Grid 5\u00d75 @ 7D (1050m)",
+        "n_turbines": 25,
+        "aep_gwh": 85.11,
+        "aep_no_wake_gwh": 97.93,
+        "wake_loss_pct": 13.09,
+        "farm_area_km2": 17.64,
+        "efficiency_pct": 86.91
+      },
+      "B_grid_10D": {
+        "label": "Grid 5\u00d75 @ 10D (1500m)",
+        "n_turbines": 25,
+        "aep_gwh": 92.01,
+        "aep_no_wake_gwh": 97.93,
+        "wake_loss_pct": 6.04,
+        "farm_area_km2": 36.0,
+        "efficiency_pct": 93.96
+      },
+      "C_ridge": {
+        "label": "Ridge @ 8D (1200m) az=108\u00b0",
+        "n_turbines": 25,
+        "aep_gwh": 93.09,
+        "aep_no_wake_gwh": 97.93,
+        "wake_loss_pct": 4.94,
+        "farm_area_km2": 241.6,
+        "efficiency_pct": 95.06
+      }
+    },
+    "optimal_spacing_D": 5
+  },
+  "terrain": {
+    "dem_source": "DEMNAS BIG Indonesia 8m",
+    "elevation_min_m": 0.0,
+    "elevation_max_m": 2822.62,
+    "area_above_500m_km2": 10047.4,
+    "peak_lat": -7.8367,
+    "peak_lon": 112.72
+  },
+  "rekomendasi": "Kurang layak untuk PLTB skala besar",
+  "methodology": [
+    "Sumber data: ERA5 ECMWF 1980\u20132025 (0.125\u00b0 hourly)",
+    "DEM: DEMNAS BIG Indonesia 8m resolusi",
+    "Ekstrapolasi: Power Law \u03b1=0.20 (onshore)",
+    "Downscaling: Jackson-Hunt topographic speedup + roughness correction",
+    "Statistik: Weibull 2-parameter MLE (scipy.stats)",
+    "WPD: 0.5\u00d7\u03c1\u00d7\u03bb\u00b3\u00d7\u0393(1+3/k)",
+    "Wake: Jensen/Park top-hat model",
+    "Extreme wind: Gumbel GEV pada annual maxima",
+    "IEC class: V_ref = 1.4 \u00d7 V_50yr"
+  ],
+  "generated_at": "2026-07-08T05:13:37+07:00"
+}
